@@ -86,7 +86,26 @@ def train(gpu, args, exp_dataset_folder, experiment_name, models_folder, version
         test_dataset=test_dataset
     )
 
-    
+    # Ensure model is on correct device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    inference_model = inference_model.to(device)
+    inference_model.eval()
+
+    # Run test
+    test_results = trainer.test(inference_model, ckpt_path=ckpt_path)[0]
+    wb.log_metrics(test_results)
+    csv_log.log_metrics(test_results)
+
+    # Save predictions for test set
+    if test_dataset is not None:
+        test_dataset_list = load_jsonlines(test_dataset_path)
+        test_predictions = run_inference(inference_model, inference_model.test_dataloader())
+        for i, pred in enumerate(test_predictions):
+            # Convert numpy.int64 to int for JSON serialization
+            test_dataset_list[i]['prediction'] = int(pred + 1)
+        save_json(test_dataset_list, os.path.join(EXPERIMENT_FOLDER, "test_results.json"))
+        print(f"Test predictions written to {os.path.join(EXPERIMENT_FOLDER,'test_results.json')}")
+
     # Save predictions for validation set
     val_dataset_list = load_jsonlines(os.path.join(exp_dataset_folder, "dev.json"))
     val_predictions = run_inference(inference_model, inference_model.val_dataloader())
@@ -100,6 +119,40 @@ def train(gpu, args, exp_dataset_folder, experiment_name, models_folder, version
     del inference_model
     del trainer
     torch.cuda.empty_cache()
+
+
+def run_inference(model, dataloader):
+    predictions = []
+    device = next(model.parameters()).device  # ensures we use model's device
+    for inputs, labels in tqdm(dataloader, desc="Inference"):
+        for key in inputs.keys():
+            inputs[key] = inputs[key].to(device)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        preds = torch.argmax(outputs, axis=1).cpu().detach().numpy()
+        predictions.extend(list(preds))
+    return predictions
+
+
+def load_jsonlines(file_path):
+    data = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                data.append(json.loads(line))
+    return data
+
+
+def save_json(data, file_path):
+    # Ensure all non-native types are converted for JSON
+    def convert(obj):
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        return obj
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, default=convert, indent=2)
 
 
 if __name__ == "__main__":
