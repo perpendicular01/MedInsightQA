@@ -88,3 +88,111 @@ else:
 
 print("\n" + "="*50 + "\n")
 
+# Comparison summary
+print("=== COMPARISON SUMMARY ===")
+if total_before > 0 and total_after > 0:
+    accuracy_improvement = accuracy_after - accuracy_before
+    correct_improvement = correct_after - correct_before
+
+    print(f"Accuracy Before Training: {accuracy_before:.2f}%")
+    print(f"Accuracy After Training:  {accuracy_after:.2f}%")
+    print(f"Accuracy Improvement:     {accuracy_improvement:+.2f}%")
+    print(f"Correct Answers Improvement: {correct_improvement:+d} questions")
+
+    # Show some examples of changes
+    print(f"\nSample changes (first 5 where predictions changed):")
+    changes_shown = 0
+    for i, (before, after) in enumerate(zip(results_before, results_after)):
+        if before['prediction'] != after['prediction'] and changes_shown < 5:
+            before_status = "✓" if before['correct'] else "✗"
+            after_status = "✓" if after['correct'] else "✗"
+            print(f"ID: {before['id']}")
+            print(f"  Before: {before['prediction']} {before_status} -> After: {after['prediction']} {after_status}")
+            print(f"  Actual: {before['actual']}")
+            changes_shown += 1
+            print()
+
+elif total_before == 0:
+    print("No valid results for before training")
+elif total_after == 0:
+    print("No valid results for after training")
+
+# Create visualization
+if total_before > 0 and total_after > 0:
+    # Set up the plot
+    plt.figure(figsize=(10, 6))
+
+    # Data for plotting
+    categories = ['Before Training', 'After Training']
+    accuracies = [accuracy_before, accuracy_after]
+    colors = ['#b8b8b8', '#1a80bb']
+
+    # Create bar plot
+    bars = plt.bar(categories, accuracies, color=colors, alpha=0.8, edgecolor='black', linewidth=1.2)
+
+    # Add value labels on bars
+    for i, (bar, acc) in enumerate(zip(bars, accuracies)):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1,
+                f'{acc:.2f}%', ha='center', va='bottom', fontsize=12, fontweight='bold')
+
+    # Customize the plot
+    plt.title(f'Model Performance: {model_name}\n',
+              fontsize=16, fontweight='bold', pad=20)
+    plt.ylabel('Accuracy (%)', fontsize=12)
+    plt.ylim(0, max(accuracies) + 15)  # Add some space at the top
+
+    # Add improvement arrow
+    improvement_y = max(accuracies) + 8
+    plt.annotate('', xy=(1, improvement_y), xytext=(0, improvement_y),
+                arrowprops=dict(arrowstyle='<->', color='red', lw=2))
+    plt.text(0.5, improvement_y + 1, f'Improvement: {accuracy_improvement:+.2f}%',
+             ha='center', va='bottom', fontsize=11, color='red', fontweight='bold')
+
+    # Add grid for better readability
+    plt.grid(axis='y', alpha=0.3, linestyle='--')
+
+    # Remove top and right spines
+    plt.gca().spines['top'].set_visible(False)
+    plt.gca().spines['right'].set_visible(False)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Additional metrics visualization
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
+    # Pie chart for correct/incorrect distribution (After Training)
+    correct_incorrect = [correct_after, total_after - correct_after]
+    labels = ['Correct', 'Incorrect']
+    colors_pie = ['#b8b8b8', '#1a80bb']
+
+    ax1.pie(correct_incorrect, labels=labels, colors=colors_pie, autopct='%1.1f%%',
+            startangle=90, explode=(0.1, 0))
+    ax1.set_title('After Training: Prediction Distribution', fontweight='bold')
+
+    # Improvement visualization
+    improvement_data = [correct_before, correct_improvement] if correct_improvement > 0 else [correct_after, -correct_improvement]
+    improvement_labels = ['Baseline Correct', 'Improvement'] if correct_improvement > 0 else ['Final Correct', 'Decline']
+    improvement_colors = ['#1a80bb', '#b8b8b8'] if correct_improvement > 0 else ['#b8b8b8', '#1a80bb']
+
+    ax2.bar(improvement_labels, improvement_data, color=improvement_colors, alpha=0.8)
+    ax2.set_title('Performance Change', fontweight='bold')
+    ax2.set_ylabel('Number of Questions')
+
+    # Add value labels on bars
+    for i, (label, value) in enumerate(zip(improvement_labels, improvement_data)):
+        ax2.text(i, value + (max(improvement_data)*0.01), f'{value}',
+                ha='center', va='bottom', fontweight='bold')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print final summary
+    print("\n" + "="*60)
+    print("VISUALIZATION SUMMARY")
+    print("="*60)
+    print(f"Model: {model_name}")
+    print(f"Final Accuracy: {accuracy_after:.2f}%")
+    print(f"Improvement: {accuracy_improvement:+.2f}%")
+    print(f"Relative Improvement: {(accuracy_improvement/accuracy_before)*100:+.2f}%")
+    print(f"Questions Correctly Predicted: {correct_after}/{total_after}")
