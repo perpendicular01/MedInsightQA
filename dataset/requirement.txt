@@ -1,0 +1,9 @@
+torch 
+torchvision 
+torchaudio 
+pytorch-lightning 
+transformers 
+numpy 
+pandas 
+tqdm 
+wandb
